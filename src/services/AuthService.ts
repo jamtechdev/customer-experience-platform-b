@@ -2,6 +2,8 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { injectable } from 'inversify';
 import User from '../models/User';
+import PasswordReset from '../models/PasswordReset';
+import { EmailService } from './EmailService';
 import { JWT_SECRET, JWT_EXPIRES_IN, UserRole } from '../config/constants';
 import { AppError } from '../middleware/errorHandler';
 
@@ -37,8 +39,24 @@ export interface AuthResponse {
   };
 }
 
+export interface ForgotPasswordDto {
+  email: string;
+}
+
+export interface ResetPasswordDto {
+  email: string;
+  otp: string;
+  newPassword: string;
+}
+
 @injectable()
 export class AuthService {
+  private emailService: EmailService;
+
+  constructor() {
+    this.emailService = new EmailService();
+  }
+
   async register(data: RegisterDto): Promise<AuthResponse> {
     const existingUser = await User.findOne({ where: { email: data.email } });
     if (existingUser) {
@@ -123,6 +141,94 @@ export class AuthService {
     }
     // Default for VIEWER and other roles
     return ['feedback.read', 'reports.read'];
+  }
+
+  async forgotPassword(data: ForgotPasswordDto): Promise<{ message: string }> {
+    const user = await User.findOne({ where: { email: data.email } });
+    
+    // Don't reveal if user exists or not for security
+    if (!user) {
+      // Still return success to prevent email enumeration
+      return { message: 'If the email exists, a password reset code has been sent.' };
+    }
+
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    // Set expiration to 10 minutes
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + 10);
+
+    // Invalidate any existing OTPs for this email
+    await PasswordReset.update(
+      { used: true },
+      { where: { email: data.email, used: false } }
+    );
+
+    // Create new password reset record
+    await PasswordReset.create({
+      email: data.email,
+      otp,
+      expiresAt,
+      used: false,
+    });
+
+    // Send email with OTP
+    try {
+      await this.emailService.sendPasswordResetOTP(
+        data.email,
+        otp,
+        user.firstName
+      );
+    } catch (error: any) {
+      console.error('Failed to send password reset email:', error);
+      throw new AppError('Failed to send password reset email', 500);
+    }
+
+    return { message: 'If the email exists, a password reset code has been sent.' };
+  }
+
+  async resetPassword(data: ResetPasswordDto): Promise<{ message: string }> {
+    // Find valid, unused OTP
+    const passwordReset = await PasswordReset.findOne({
+      where: {
+        email: data.email,
+        otp: data.otp,
+        used: false,
+      },
+      order: [['createdAt', 'DESC']],
+    });
+
+    if (!passwordReset) {
+      throw new AppError('Invalid or expired OTP code', 400);
+    }
+
+    // Check if OTP has expired
+    if (new Date() > passwordReset.expiresAt) {
+      throw new AppError('OTP code has expired. Please request a new one.', 400);
+    }
+
+    // Find user
+    const user = await User.findOne({ where: { email: data.email } });
+    if (!user) {
+      throw new AppError('User not found', 404);
+    }
+
+    // Validate new password
+    if (data.newPassword.length < 6) {
+      throw new AppError('Password must be at least 6 characters long', 400);
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(data.newPassword, 10);
+
+    // Update user password
+    await user.update({ password: hashedPassword });
+
+    // Mark OTP as used
+    await passwordReset.update({ used: true });
+
+    return { message: 'Password has been reset successfully' };
   }
 
   private generateToken(userId: number): string {

@@ -3,6 +3,13 @@ import { AlertService } from '../services/AlertService';
 import { AuthRequest } from '../middleware/auth';
 import container from '../config/container';
 import { TYPES } from '../config/types';
+import { AppError } from '../middleware/errorHandler';
+import {
+  successHandler,
+  errorHandler,
+  unauthorizedHandler,
+  serverErrorHandler,
+} from '../utils/responseHandler';
 
 export class AlertController {
   private alertService: AlertService;
@@ -15,24 +22,32 @@ export class AlertController {
     try {
       const acknowledged = req.query.acknowledged === 'true' ? true : req.query.acknowledged === 'false' ? false : undefined;
       const alerts = await this.alertService.getAlerts(acknowledged);
-      res.json(alerts);
+      successHandler(res, alerts, 200, 'Alerts retrieved successfully');
     } catch (error: any) {
-      next(error);
+      if (error instanceof AppError) {
+        errorHandler(res, error.statusCode, error.message);
+        return;
+      }
+      serverErrorHandler(res, error);
     }
   };
 
   acknowledgeAlert = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       if (!req.user) {
-        res.status(401).json({ error: 'Authentication required' });
+        unauthorizedHandler(res, 'Authentication required');
         return;
       }
 
       const alertId = parseInt(req.params.id);
       const alert = await this.alertService.acknowledgeAlert(alertId, req.user.id);
-      res.json(alert);
+      successHandler(res, alert, 200, 'Alert acknowledged successfully');
     } catch (error: any) {
-      next(error);
+      if (error instanceof AppError) {
+        errorHandler(res, error.statusCode, error.message);
+        return;
+      }
+      serverErrorHandler(res, error);
     }
   };
 
@@ -40,14 +55,18 @@ export class AlertController {
     try {
       const companyId = parseInt(req.body.companyId);
       if (!companyId) {
-        res.status(400).json({ error: 'Company ID is required' });
+        errorHandler(res, 400, 'Company ID is required');
         return;
       }
 
       const newAlerts = await this.alertService.checkForAlerts(companyId);
-      res.json(newAlerts);
+      successHandler(res, newAlerts, 200, 'Alerts checked successfully');
     } catch (error: any) {
-      next(error);
+      if (error instanceof AppError) {
+        errorHandler(res, error.statusCode, error.message);
+        return;
+      }
+      serverErrorHandler(res, error);
     }
   };
 }

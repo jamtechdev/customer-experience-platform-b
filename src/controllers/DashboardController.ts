@@ -7,6 +7,12 @@ import { RootCauseService } from '../services/RootCauseService';
 import { JourneyAnalysisService } from '../services/JourneyAnalysisService';
 import container from '../config/container';
 import { TYPES } from '../config/types';
+import { AppError } from '../middleware/errorHandler';
+import {
+  successHandler,
+  errorHandler,
+  serverErrorHandler,
+} from '../utils/responseHandler';
 
 export class DashboardController {
   private sentimentService: SentimentAnalysisService;
@@ -110,7 +116,7 @@ export class DashboardController {
         }
       }
 
-      res.json({
+      const dashboardData = {
         sentiment: {
           positive: sentimentStats.positive,
           negative: sentimentStats.negative,
@@ -131,9 +137,14 @@ export class DashboardController {
         competitor: competitorSummary,
         rootCauses: rootCauseSummary,
         journey: journeyHeatmap,
-      });
+      };
+      successHandler(res, dashboardData, 200, 'Dashboard statistics retrieved successfully');
     } catch (error: any) {
-      next(error);
+      if (error instanceof AppError) {
+        errorHandler(res, error.statusCode, error.message);
+        return;
+      }
+      serverErrorHandler(res, error);
     }
   };
 
@@ -144,9 +155,13 @@ export class DashboardController {
       const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
 
       const stats = await this.sentimentService.getSentimentStats(companyId, startDate, endDate);
-      res.json(stats);
+      successHandler(res, stats, 200, 'Sentiment overview retrieved successfully');
     } catch (error: any) {
-      next(error);
+      if (error instanceof AppError) {
+        errorHandler(res, error.statusCode, error.message);
+        return;
+      }
+      serverErrorHandler(res, error);
     }
   };
 
@@ -158,19 +173,23 @@ export class DashboardController {
       const period = (req.query.period as 'day' | 'week' | 'month') || 'month';
 
       if (!companyId) {
-        res.status(400).json({ error: 'Company ID is required' });
+        errorHandler(res, 400, 'Company ID is required');
         return;
       }
 
       const nps = await this.npsService.calculateNPS(companyId, startDate, endDate);
       const trends = await this.npsService.getNPSTrends(companyId, period);
 
-      res.json({
+      successHandler(res, {
         current: nps,
         trends,
-      });
+      }, 200, 'NPS dashboard data retrieved successfully');
     } catch (error: any) {
-      next(error);
+      if (error instanceof AppError) {
+        errorHandler(res, error.statusCode, error.message);
+        return;
+      }
+      serverErrorHandler(res, error);
     }
   };
 
@@ -178,7 +197,7 @@ export class DashboardController {
     try {
       const companyId = parseInt(req.query.companyId as string);
       if (!companyId) {
-        res.status(400).json({ error: 'Company ID is required' });
+        errorHandler(res, 400, 'Company ID is required');
         return;
       }
 
@@ -188,13 +207,17 @@ export class DashboardController {
       const days = req.query.days ? parseInt(req.query.days as string) : 30;
       const trends = await this.competitorService.compareTrends(companyId, period, days);
 
-      res.json({
+      successHandler(res, {
         comparison,
         gaps,
         trends,
-      });
+      }, 200, 'Competitor comparison retrieved successfully');
     } catch (error: any) {
-      next(error);
+      if (error instanceof AppError) {
+        errorHandler(res, error.statusCode, error.message);
+        return;
+      }
+      serverErrorHandler(res, error);
     }
   };
 
@@ -227,9 +250,13 @@ export class DashboardController {
         summary.byCategory[category] = (summary.byCategory[category] || 0) + 1;
       }
 
-      res.json(summary);
+      successHandler(res, summary, 200, 'Root cause summary retrieved successfully');
     } catch (error: any) {
-      next(error);
+      if (error instanceof AppError) {
+        errorHandler(res, error.statusCode, error.message);
+        return;
+      }
+      serverErrorHandler(res, error);
     }
   };
 
@@ -237,14 +264,14 @@ export class DashboardController {
     try {
       const companyId = parseInt(req.query.companyId as string);
       if (!companyId) {
-        res.status(400).json({ error: 'Company ID is required' });
+        errorHandler(res, 400, 'Company ID is required');
         return;
       }
 
       const journeyAnalysis = await this.journeyService.analyzeJourney(companyId);
       const touchpointAnalysis = await this.journeyService.analyzeTouchpoints(companyId);
 
-      res.json({
+      successHandler(res, {
         stages: journeyAnalysis.map(stage => ({
           stageId: stage.stage.id,
           stageName: stage.stage.name,
@@ -264,9 +291,13 @@ export class DashboardController {
           positiveCount: tp.positiveCount,
           negativeCount: tp.negativeCount,
         })),
-      });
+      }, 200, 'Journey heatmap retrieved successfully');
     } catch (error: any) {
-      next(error);
+      if (error instanceof AppError) {
+        errorHandler(res, error.statusCode, error.message);
+        return;
+      }
+      serverErrorHandler(res, error);
     }
   };
 
@@ -294,9 +325,13 @@ export class DashboardController {
         })),
       };
 
-      res.json(panel);
+      successHandler(res, panel, 200, 'Alert panel retrieved successfully');
     } catch (error: any) {
-      next(error);
+      if (error instanceof AppError) {
+        errorHandler(res, error.statusCode, error.message);
+        return;
+      }
+      serverErrorHandler(res, error);
     }
   };
 }

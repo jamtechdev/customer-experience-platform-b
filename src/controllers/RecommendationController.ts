@@ -2,6 +2,12 @@ import { Request, Response, NextFunction } from 'express';
 import { AIRecommendationService } from '../services/AIRecommendationService';
 import container from '../config/container';
 import { TYPES } from '../config/types';
+import { AppError } from '../middleware/errorHandler';
+import {
+  successHandler,
+  errorHandler,
+  serverErrorHandler,
+} from '../utils/responseHandler';
 
 export class RecommendationController {
   private recommendationService: AIRecommendationService;
@@ -14,14 +20,18 @@ export class RecommendationController {
     try {
       const { companyId } = req.body;
       if (!companyId) {
-        res.status(400).json({ error: 'Company ID is required' });
+        errorHandler(res, 400, 'Company ID is required');
         return;
       }
 
       const recommendations = await this.recommendationService.generateRecommendations(companyId);
-      res.json(recommendations);
+      successHandler(res, recommendations, 200, 'Recommendations generated successfully');
     } catch (error: any) {
-      next(error);
+      if (error instanceof AppError) {
+        errorHandler(res, error.statusCode, error.message);
+        return;
+      }
+      serverErrorHandler(res, error);
     }
   };
 
@@ -31,9 +41,13 @@ export class RecommendationController {
       const priority = req.query.priority as string | undefined;
 
       const recommendations = await this.recommendationService.getRecommendations(companyId, priority as any);
-      res.json(recommendations);
+      successHandler(res, recommendations, 200, 'Recommendations retrieved successfully');
     } catch (error: any) {
-      next(error);
+      if (error instanceof AppError) {
+        errorHandler(res, error.statusCode, error.message);
+        return;
+      }
+      serverErrorHandler(res, error);
     }
   };
 }

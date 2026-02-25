@@ -3,6 +3,13 @@ import { TouchpointService } from '../services/TouchpointService';
 import { body, validationResult } from 'express-validator';
 import container from '../config/container';
 import { TYPES } from '../config/types';
+import { AppError } from '../middleware/errorHandler';
+import {
+  successHandler,
+  errorHandler,
+  serverErrorHandler,
+  validationErrorHandler,
+} from '../utils/responseHandler';
 
 export class TouchpointController {
   private touchpointService: TouchpointService;
@@ -14,9 +21,13 @@ export class TouchpointController {
   getTouchpoints = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const touchpoints = await this.touchpointService.getTouchpoints();
-      res.json(touchpoints);
+      successHandler(res, touchpoints, 200, 'Touchpoints retrieved successfully');
     } catch (error: any) {
-      next(error);
+      if (error instanceof AppError) {
+        errorHandler(res, error.statusCode, error.message);
+        return;
+      }
+      serverErrorHandler(res, error);
     }
   };
 
@@ -24,9 +35,13 @@ export class TouchpointController {
     try {
       const touchpointId = parseInt(req.params.id);
       const performance = await this.touchpointService.getTouchpointPerformance(touchpointId);
-      res.json(performance);
+      successHandler(res, performance, 200, 'Touchpoint performance retrieved successfully');
     } catch (error: any) {
-      next(error);
+      if (error instanceof AppError) {
+        errorHandler(res, error.statusCode, error.message);
+        return;
+      }
+      serverErrorHandler(res, error);
     }
   };
 
@@ -34,14 +49,18 @@ export class TouchpointController {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        res.status(400).json({ errors: errors.array() });
+        validationErrorHandler(res, errors.array());
         return;
       }
 
       const touchpoint = await this.touchpointService.createTouchpoint(req.body);
-      res.status(201).json(touchpoint);
+      successHandler(res, touchpoint, 201, 'Touchpoint created successfully');
     } catch (error: any) {
-      next(error);
+      if (error instanceof AppError) {
+        errorHandler(res, error.statusCode, error.message);
+        return;
+      }
+      serverErrorHandler(res, error);
     }
   };
 }

@@ -5,6 +5,12 @@ import { RootCauseService } from '../services/RootCauseService';
 import { CompetitorAnalysisService } from '../services/CompetitorAnalysisService';
 import container from '../config/container';
 import { TYPES } from '../config/types';
+import { AppError } from '../middleware/errorHandler';
+import {
+  successHandler,
+  errorHandler,
+  serverErrorHandler,
+} from '../utils/responseHandler';
 
 export class AnalysisController {
   private sentimentService: SentimentAnalysisService;
@@ -23,14 +29,18 @@ export class AnalysisController {
     try {
       const { feedbackId } = req.body;
       if (!feedbackId) {
-        res.status(400).json({ error: 'Feedback ID is required' });
+        errorHandler(res, 400, 'Feedback ID is required');
         return;
       }
 
       const analysis = await this.sentimentService.analyzeFeedback(feedbackId);
-      res.json(analysis);
+      successHandler(res, analysis, 200, 'Sentiment analysis completed successfully');
     } catch (error: any) {
-      next(error);
+      if (error instanceof AppError) {
+        errorHandler(res, error.statusCode, error.message);
+        return;
+      }
+      serverErrorHandler(res, error);
     }
   };
 
@@ -41,9 +51,13 @@ export class AnalysisController {
       const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
 
       const stats = await this.sentimentService.getSentimentStats(companyId, startDate, endDate);
-      res.json(stats);
+      successHandler(res, stats, 200, 'Sentiment statistics retrieved successfully');
     } catch (error: any) {
-      next(error);
+      if (error instanceof AppError) {
+        errorHandler(res, error.statusCode, error.message);
+        return;
+      }
+      serverErrorHandler(res, error);
     }
   };
 
@@ -51,7 +65,7 @@ export class AnalysisController {
     try {
       const { companyId, startDate, endDate } = req.body;
       if (!companyId) {
-        res.status(400).json({ error: 'Company ID is required' });
+        errorHandler(res, 400, 'Company ID is required');
         return;
       }
 
@@ -60,9 +74,13 @@ export class AnalysisController {
         startDate ? new Date(startDate) : undefined,
         endDate ? new Date(endDate) : undefined
       );
-      res.json(nps);
+      successHandler(res, nps, 200, 'NPS analysis completed successfully');
     } catch (error: any) {
-      next(error);
+      if (error instanceof AppError) {
+        errorHandler(res, error.statusCode, error.message);
+        return;
+      }
+      serverErrorHandler(res, error);
     }
   };
 
@@ -72,14 +90,18 @@ export class AnalysisController {
       const period = (req.query.period as 'day' | 'week' | 'month') || 'month';
 
       if (!companyId) {
-        res.status(400).json({ error: 'Company ID is required' });
+        errorHandler(res, 400, 'Company ID is required');
         return;
       }
 
       const trends = await this.npsService.getNPSTrends(companyId, period);
-      res.json(trends);
+      successHandler(res, trends, 200, 'NPS trends retrieved successfully');
     } catch (error: any) {
-      next(error);
+      if (error instanceof AppError) {
+        errorHandler(res, error.statusCode, error.message);
+        return;
+      }
+      serverErrorHandler(res, error);
     }
   };
 
@@ -87,14 +109,18 @@ export class AnalysisController {
     try {
       const { companyId, limit } = req.body;
       if (!companyId) {
-        res.status(400).json({ error: 'Company ID is required' });
+        errorHandler(res, 400, 'Company ID is required');
         return;
       }
 
       const rootCauses = await this.rootCauseService.analyzeRootCauses(companyId, limit || 50);
-      res.json(rootCauses);
+      successHandler(res, rootCauses, 200, 'Root cause analysis completed successfully');
     } catch (error: any) {
-      next(error);
+      if (error instanceof AppError) {
+        errorHandler(res, error.statusCode, error.message);
+        return;
+      }
+      serverErrorHandler(res, error);
     }
   };
 
@@ -102,9 +128,13 @@ export class AnalysisController {
     try {
       const companyId = req.query.companyId ? parseInt(req.query.companyId as string) : undefined;
       const rootCauses = await this.rootCauseService.getRootCauses(companyId);
-      res.json(rootCauses);
+      successHandler(res, rootCauses, 200, 'Root causes retrieved successfully');
     } catch (error: any) {
-      next(error);
+      if (error instanceof AppError) {
+        errorHandler(res, error.statusCode, error.message);
+        return;
+      }
+      serverErrorHandler(res, error);
     }
   };
 
@@ -112,14 +142,18 @@ export class AnalysisController {
     try {
       const companyId = parseInt(req.query.companyId as string);
       if (!companyId) {
-        res.status(400).json({ error: 'Company ID is required' });
+        errorHandler(res, 400, 'Company ID is required');
         return;
       }
 
       const analysis = await this.competitorService.compareWithCompetitors(companyId);
-      res.json(analysis);
+      successHandler(res, analysis, 200, 'Competitor analysis retrieved successfully');
     } catch (error: any) {
-      next(error);
+      if (error instanceof AppError) {
+        errorHandler(res, error.statusCode, error.message);
+        return;
+      }
+      serverErrorHandler(res, error);
     }
   };
 }

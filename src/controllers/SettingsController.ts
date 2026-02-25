@@ -2,6 +2,13 @@ import { Request, Response, NextFunction } from 'express';
 import { injectable } from 'inversify';
 import { SettingsService } from '../services/SettingsService';
 import { AuthRequest } from '../middleware/auth';
+import { AppError } from '../middleware/errorHandler';
+import {
+  successHandler,
+  errorHandler,
+  unauthorizedHandler,
+  serverErrorHandler,
+} from '../utils/responseHandler';
 
 @injectable()
 export class SettingsController {
@@ -10,42 +17,54 @@ export class SettingsController {
   getSettings = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       if (!req.user) {
-        res.status(401).json({ error: 'Authentication required' });
+        unauthorizedHandler(res, 'Authentication required');
         return;
       }
 
       const settings = await this.settingsService.getUserSettings(req.user.id);
-      res.json({ success: true, data: settings });
+      successHandler(res, settings, 200, 'Settings retrieved successfully');
     } catch (error: any) {
-      next(error);
+      if (error instanceof AppError) {
+        errorHandler(res, error.statusCode, error.message);
+        return;
+      }
+      serverErrorHandler(res, error);
     }
   };
 
   updateSettings = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       if (!req.user) {
-        res.status(401).json({ error: 'Authentication required' });
+        unauthorizedHandler(res, 'Authentication required');
         return;
       }
 
       const settings = await this.settingsService.updateUserSettings(req.user.id, req.body);
-      res.json({ success: true, data: settings });
+      successHandler(res, settings, 200, 'Settings updated successfully');
     } catch (error: any) {
-      next(error);
+      if (error instanceof AppError) {
+        errorHandler(res, error.statusCode, error.message);
+        return;
+      }
+      serverErrorHandler(res, error);
     }
   };
 
   deleteSettings = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       if (!req.user) {
-        res.status(401).json({ error: 'Authentication required' });
+        unauthorizedHandler(res, 'Authentication required');
         return;
       }
 
       await this.settingsService.resetUserSettings(req.user.id);
-      res.json({ success: true, message: 'Settings reset to defaults' });
+      successHandler(res, null, 200, 'Settings reset to defaults');
     } catch (error: any) {
-      next(error);
+      if (error instanceof AppError) {
+        errorHandler(res, error.statusCode, error.message);
+        return;
+      }
+      serverErrorHandler(res, error);
     }
   };
 }

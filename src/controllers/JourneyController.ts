@@ -2,6 +2,12 @@ import { Request, Response, NextFunction } from 'express';
 import { JourneyAnalysisService } from '../services/JourneyAnalysisService';
 import container from '../config/container';
 import { TYPES } from '../config/types';
+import { AppError } from '../middleware/errorHandler';
+import {
+  successHandler,
+  errorHandler,
+  serverErrorHandler,
+} from '../utils/responseHandler';
 
 export class JourneyController {
   private journeyService: JourneyAnalysisService;
@@ -13,9 +19,13 @@ export class JourneyController {
   getStages = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const stages = await this.journeyService.getStages();
-      res.json(stages);
+      successHandler(res, stages, 200, 'Journey stages retrieved successfully');
     } catch (error: any) {
-      next(error);
+      if (error instanceof AppError) {
+        errorHandler(res, error.statusCode, error.message);
+        return;
+      }
+      serverErrorHandler(res, error);
     }
   };
 
@@ -23,14 +33,18 @@ export class JourneyController {
     try {
       const companyId = parseInt(req.query.companyId as string);
       if (!companyId) {
-        res.status(400).json({ error: 'Company ID is required' });
+        errorHandler(res, 400, 'Company ID is required');
         return;
       }
 
       const analysis = await this.journeyService.analyzeJourney(companyId);
-      res.json(analysis);
+      successHandler(res, analysis, 200, 'Journey analysis completed successfully');
     } catch (error: any) {
-      next(error);
+      if (error instanceof AppError) {
+        errorHandler(res, error.statusCode, error.message);
+        return;
+      }
+      serverErrorHandler(res, error);
     }
   };
 
@@ -38,14 +52,18 @@ export class JourneyController {
     try {
       const companyId = parseInt(req.query.companyId as string);
       if (!companyId) {
-        res.status(400).json({ error: 'Company ID is required' });
+        errorHandler(res, 400, 'Company ID is required');
         return;
       }
 
       const trends = await this.journeyService.getJourneyTrends(companyId);
-      res.json(trends);
+      successHandler(res, trends, 200, 'Journey trends retrieved successfully');
     } catch (error: any) {
-      next(error);
+      if (error instanceof AppError) {
+        errorHandler(res, error.statusCode, error.message);
+        return;
+      }
+      serverErrorHandler(res, error);
     }
   };
 }
