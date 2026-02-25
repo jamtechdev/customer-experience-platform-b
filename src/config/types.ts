@@ -1,0 +1,17 @@
+export const TYPES = {
+  AuthService: Symbol.for('AuthService'),
+  CSVService: Symbol.for('CSVService'),
+  SentimentAnalysisService: Symbol.for('SentimentAnalysisService'),
+  NPSService: Symbol.for('NPSService'),
+  RootCauseService: Symbol.for('RootCauseService'),
+  CompetitorAnalysisService: Symbol.for('CompetitorAnalysisService'),
+  AlertService: Symbol.for('AlertService'),
+  JourneyAnalysisService: Symbol.for('JourneyAnalysisService'),
+  TouchpointService: Symbol.for('TouchpointService'),
+  AIRecommendationService: Symbol.for('AIRecommendationService'),
+  OfflineAnalysisService: Symbol.for('OfflineAnalysisService'),
+  SocialMediaAnalysisService: Symbol.for('SocialMediaAnalysisService'),
+  ProcessEnhancementService: Symbol.for('ProcessEnhancementService'),
+  ReportService: Symbol.for('ReportService'),
+  SettingsService: Symbol.for('SettingsService'),
+};

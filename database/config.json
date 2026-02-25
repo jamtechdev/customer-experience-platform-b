@@ -1,0 +1,38 @@
+{
+  "development": {
+    "username": "root",
+    "password": "",
+    "database": "customer_experience",
+    "host": "localhost",
+    "port": 3306,
+    "dialect": "mysql",
+    "dialectOptions": {
+      "charset": "utf8mb4",
+      "collate": "utf8mb4_unicode_ci"
+    }
+  },
+  "test": {
+    "username": "root",
+    "password": "",
+    "database": "customer_experience_test",
+    "host": "localhost",
+    "port": 3306,
+    "dialect": "mysql",
+    "dialectOptions": {
+      "charset": "utf8mb4",
+      "collate": "utf8mb4_unicode_ci"
+    }
+  },
+  "production": {
+    "username": "root",
+    "password": "",
+    "database": "customer_experience",
+    "host": "localhost",
+    "port": 3306,
+    "dialect": "mysql",
+    "dialectOptions": {
+      "charset": "utf8mb4",
+      "collate": "utf8mb4_unicode_ci"
+    }
+  }
+}
