@@ -52,10 +52,12 @@ RootCause.init(
       type: DataTypes.JSON,
       allowNull: false,
       defaultValue: [],
+      field: 'feedback_ids',
     },
     touchpointId: {
       type: DataTypes.INTEGER,
       allowNull: true,
+      field: 'touchpoint_id',
       references: {
         model: Touchpoint,
         key: 'id',
@@ -71,9 +73,11 @@ RootCause.init(
     sequelize,
     tableName: 'root_causes',
     timestamps: true,
+    createdAt: 'created_at',
+    updatedAt: 'updated_at',
   }
 );
 
-RootCause.belongsTo(Touchpoint, { foreignKey: 'touchpointId' });
+RootCause.belongsTo(Touchpoint, { foreignKey: 'touchpointId', targetKey: 'id' });
 
 export default RootCause;

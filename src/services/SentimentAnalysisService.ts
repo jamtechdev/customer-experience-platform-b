@@ -67,7 +67,7 @@ export class SentimentAnalysisService {
 
     const feedback = await CustomerFeedback.findAll({
       where,
-      include: [{ model: SentimentAnalysis, required: true }],
+      include: [{ model: SentimentAnalysis, required: false }],
     });
 
     if (startDate || endDate) {

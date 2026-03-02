@@ -12,6 +12,8 @@ import { UPLOAD_DIR } from '../config/constants';
 import { AppError } from '../middleware/errorHandler';
 import { validateCSV, validateCSVRow, detectCSVType, CSV_SCHEMAS } from '../utils/csvValidator';
 import { TYPES } from '../config/types';
+import { BatchProcessingService } from './BatchProcessingService';
+import logger from '../config/logger';
 
 export interface CSVUploadResult {
   importId: number;
@@ -29,6 +31,10 @@ export interface ImportResult {
 
 @injectable()
 export class CSVService {
+  constructor(
+    @inject(TYPES.BatchProcessingService) private batchProcessingService: BatchProcessingService
+  ) {}
+
   async uploadCSV(file: Express.Multer.File, userId: number): Promise<CSVUploadResult> {
     if (!file) {
       throw new AppError('No file uploaded', 400);
@@ -120,6 +126,14 @@ export class CSVService {
     return await CSVImport.findAll({ where, order: [['createdAt', 'DESC']] });
   }
 
+  async getImportById(importId: number, userId?: number): Promise<CSVImport | null> {
+    const where: any = { id: importId };
+    if (userId) {
+      where.userId = userId;
+    }
+    return await CSVImport.findOne({ where });
+  }
+
   async importCSVData(
     csvImportId: number,
     mappings: Record<string, string>,
@@ -161,6 +175,9 @@ export class CSVService {
       if (!company) {
         company = await Company.create({ name: 'Default Company', id: companyId });
       }
+
+      // Track imported feedback IDs for batch processing
+      const importedFeedbackIds: number[] = [];
 
       // Import based on data type
       if (detectedType === 'nps_survey') {
@@ -250,9 +267,7 @@ export class CSVService {
               competitorId: competitorId || undefined,
             });
 
-            // Note: Sentiment analysis will be triggered separately after import
-            // to avoid circular dependencies
-
+            importedFeedbackIds.push(feedback.id);
             importedCount++;
           } catch (error: any) {
             errors.push(`Row ${importedCount + failedCount + 1}: ${error.message}`);
@@ -266,6 +281,22 @@ export class CSVService {
         status: importedCount > 0 ? 'completed' : 'failed',
         errorMessage: errors.length > 0 ? errors.slice(0, 10).join('; ') : undefined,
       });
+
+      // Automatically trigger batch processing for imported feedback
+      if (importedFeedbackIds.length > 0 && detectedType !== 'nps_survey') {
+        try {
+          logger.info(`Starting automatic batch processing for ${importedFeedbackIds.length} feedback records`);
+          await this.batchProcessingService.processFeedbackBatch(
+            importedFeedbackIds,
+            companyId
+          );
+          logger.info(`Completed automatic batch processing for ${importedFeedbackIds.length} feedback records`);
+        } catch (error: any) {
+          // Log error but don't fail the import
+          logger.error(`Failed to process batch after import: ${error.message}`, error);
+          errors.push(`Batch processing failed: ${error.message}`);
+        }
+      }
 
       return {
         success: importedCount > 0,

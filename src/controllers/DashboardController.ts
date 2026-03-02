@@ -37,27 +37,52 @@ export class DashboardController {
       const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
       const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
 
-      // Get sentiment stats
-      const sentimentStats = await this.sentimentService.getSentimentStats(companyId, startDate, endDate);
+      // Get sentiment stats with error handling
+      let sentimentStats = {
+        positive: 0,
+        negative: 0,
+        neutral: 0,
+        averageScore: 0,
+        total: 0,
+      };
+      try {
+        sentimentStats = await this.sentimentService.getSentimentStats(companyId, startDate, endDate);
+      } catch (error: any) {
+        console.error('Error getting sentiment stats:', error);
+        // Use default values if sentiment stats fail
+      }
 
-      // Get NPS score
+      // Get NPS score with error handling
       let npsScore = 0;
       let npsDetails = { promoters: 0, passives: 0, detractors: 0, total: 0 };
       if (companyId) {
-        const nps = await this.npsService.calculateNPS(companyId, startDate, endDate);
-        npsScore = nps.npsScore;
-        npsDetails = {
-          promoters: nps.promoters,
-          passives: nps.passives,
-          detractors: nps.detractors,
-          total: nps.total,
-        };
+        try {
+          const nps = await this.npsService.calculateNPS(companyId, startDate, endDate);
+          npsScore = nps.npsScore;
+          npsDetails = {
+            promoters: nps.promoters,
+            passives: nps.passives,
+            detractors: nps.detractors,
+            total: nps.total,
+          };
+        } catch (error: any) {
+          console.error('Error calculating NPS:', error);
+          // Use default values if NPS calculation fails
+        }
       }
 
-      // Get unacknowledged alerts
-      const alerts = await this.alertService.getAlerts(false);
-      const criticalAlerts = alerts.filter((a) => a.priority === 'critical').length;
-      const highAlerts = alerts.filter((a) => a.priority === 'high').length;
+      // Get unacknowledged alerts with error handling
+      let alerts: any[] = [];
+      let criticalAlerts = 0;
+      let highAlerts = 0;
+      try {
+        alerts = await this.alertService.getAlerts(false);
+        criticalAlerts = alerts.filter((a) => a.priority === 'critical').length;
+        highAlerts = alerts.filter((a) => a.priority === 'high').length;
+      } catch (error: any) {
+        console.error('Error getting alerts:', error);
+        // Use default values if alerts fail
+      }
 
       // Get competitor comparison summary
       let competitorSummary = null;
@@ -326,6 +351,131 @@ export class DashboardController {
       };
 
       successHandler(res, panel, 200, 'Alert panel retrieved successfully');
+    } catch (error: any) {
+      if (error instanceof AppError) {
+        errorHandler(res, error.statusCode, error.message);
+        return;
+      }
+      serverErrorHandler(res, error);
+    }
+  };
+
+  getExecutiveDashboard = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const companyId = req.query.companyId ? parseInt(req.query.companyId as string) : undefined;
+      if (!companyId) {
+        errorHandler(res, 400, 'Company ID is required');
+        return;
+      }
+
+      const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+      const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+
+      // Calculate date ranges for trend comparison
+      const now = endDate || new Date();
+      const currentPeriodStart = startDate || new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000); // Last 30 days
+      const previousPeriodStart = new Date(currentPeriodStart.getTime() - (now.getTime() - currentPeriodStart.getTime()));
+      const previousPeriodEnd = currentPeriodStart;
+
+      // Get sentiment stats for current and previous periods
+      const currentSentiment = await this.sentimentService.getSentimentStats(companyId, currentPeriodStart, now);
+      const previousSentiment = await this.sentimentService.getSentimentStats(companyId, previousPeriodStart, previousPeriodEnd);
+      
+      // Calculate sentiment index (-1 to 1, normalized)
+      const sentimentIndex = currentSentiment.averageScore;
+      const previousSentimentIndex = previousSentiment.averageScore;
+      const sentimentTrend = sentimentIndex > previousSentimentIndex ? 'up' : sentimentIndex < previousSentimentIndex ? 'down' : 'stable';
+      const sentimentChange = sentimentIndex - previousSentimentIndex;
+
+      // Get NPS for current and previous periods
+      const currentNPS = await this.npsService.calculateNPS(companyId, currentPeriodStart, now);
+      const previousNPS = await this.npsService.calculateNPS(companyId, previousPeriodStart, previousPeriodEnd);
+      const npsTrend = currentNPS.npsScore > previousNPS.npsScore ? 'up' : currentNPS.npsScore < previousNPS.npsScore ? 'down' : 'stable';
+      const npsChange = currentNPS.npsScore - previousNPS.npsScore;
+
+      // Get top 3 competitors comparison
+      let topCompetitors: Array<{
+        id: number;
+        name: string;
+        sentimentScore: number;
+        npsScore: number;
+        gap: number;
+      }> = [];
+      
+      try {
+        const comparison = await this.competitorService.compareWithCompetitors(companyId);
+        topCompetitors = comparison.competitors
+          .sort((a, b) => b.sentimentScore - a.sentimentScore)
+          .slice(0, 3)
+          .map(comp => ({
+            id: comp.id,
+            name: comp.name,
+            sentimentScore: comp.sentimentScore,
+            npsScore: comp.npsScore || 0,
+            gap: comp.sentimentScore - comparison.company.sentimentScore,
+          }));
+      } catch (error) {
+        // Ignore competitor errors
+      }
+
+      // Get critical alerts summary
+      const alerts = await this.alertService.getAlerts(false);
+      const criticalAlerts = alerts
+        .filter(a => a.priority === 'critical' || a.priority === 'high')
+        .slice(0, 5)
+        .map(a => ({
+          id: a.id,
+          title: a.title,
+          message: a.message,
+          priority: a.priority,
+          type: a.type,
+          createdAt: a.createdAt,
+        }));
+
+      // High-level KPIs
+      const kpis = {
+        totalFeedback: currentSentiment.total,
+        sentimentIndex: Math.round(sentimentIndex * 100) / 100,
+        sentimentTrend,
+        sentimentChange: Math.round(sentimentChange * 100) / 100,
+        npsScore: Math.round(currentNPS.npsScore * 100) / 100,
+        npsTrend,
+        npsChange: Math.round(npsChange * 100) / 100,
+        positiveRate: currentSentiment.total > 0 
+          ? Math.round((currentSentiment.positive / currentSentiment.total) * 100 * 100) / 100 
+          : 0,
+        negativeRate: currentSentiment.total > 0 
+          ? Math.round((currentSentiment.negative / currentSentiment.total) * 100 * 100) / 100 
+          : 0,
+        criticalAlertsCount: criticalAlerts.length,
+        competitorCount: topCompetitors.length,
+      };
+
+      const executiveData = {
+        kpis,
+        sentiment: {
+          index: sentimentIndex,
+          trend: sentimentTrend,
+          change: sentimentChange,
+          positive: currentSentiment.positive,
+          negative: currentSentiment.negative,
+          neutral: currentSentiment.neutral,
+        },
+        nps: {
+          score: currentNPS.npsScore,
+          trend: npsTrend,
+          change: npsChange,
+          promoters: currentNPS.promoters,
+          passives: currentNPS.passives,
+          detractors: currentNPS.detractors,
+          total: currentNPS.total,
+        },
+        competitors: topCompetitors,
+        criticalAlerts,
+        lastUpdated: new Date().toISOString(),
+      };
+
+      successHandler(res, executiveData, 200, 'Executive dashboard data retrieved successfully');
     } catch (error: any) {
       if (error instanceof AppError) {
         errorHandler(res, error.statusCode, error.message);

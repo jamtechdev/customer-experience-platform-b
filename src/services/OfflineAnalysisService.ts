@@ -136,23 +136,36 @@ export class OfflineAnalysisService {
     // Extract keywords and count frequencies
     const keywordFrequency: Record<string, number> = {};
     const categoryKeywords: Record<string, string[]> = {
-      product: ['product', 'item', 'quality', 'defective', 'broken', 'damaged', 'missing', 'wrong'],
-      service: ['service', 'staff', 'employee', 'representative', 'support', 'help', 'assistance'],
-      support: ['support', 'help', 'customer service', 'assistance', 'response', 'reply'],
-      pricing: ['price', 'cost', 'expensive', 'cheap', 'affordable', 'value', 'money', 'payment'],
-      delivery: ['delivery', 'shipping', 'arrived', 'late', 'fast', 'slow', 'package', 'order'],
+      product: ['product', 'item', 'quality', 'defective', 'broken', 'damaged', 'missing', 'wrong', 'faulty', 'malfunction', 'defect', 'flaw', 'imperfection'],
+      service: ['service', 'staff', 'employee', 'representative', 'personnel', 'team', 'worker', 'associate', 'agent'],
+      support: ['support', 'help', 'customer service', 'assistance', 'response', 'reply', 'answer', 'resolve', 'resolution', 'ticket', 'query'],
+      pricing: ['price', 'cost', 'expensive', 'cheap', 'affordable', 'value', 'money', 'payment', 'fee', 'charge', 'billing', 'invoice', 'pricing', 'overpriced'],
+      delivery: ['delivery', 'shipping', 'arrived', 'late', 'fast', 'slow', 'package', 'order', 'shipment', 'dispatch', 'logistics', 'transport', 'transit'],
+      website: ['website', 'site', 'web', 'online', 'page', 'browser', 'internet', 'url', 'link', 'navigation', 'interface', 'ui', 'ux'],
+      app: ['app', 'application', 'mobile', 'ios', 'android', 'download', 'install', 'update', 'version', 'crash', 'freeze', 'bug'],
+      communication: ['email', 'phone', 'call', 'message', 'contact', 'reach', 'respond', 'reply', 'notification', 'alert'],
       other: [],
     };
 
-    // Analyze each feedback
+    // Analyze each feedback with n-gram support (bigrams)
     for (const text of feedbackTexts) {
       const words = this.tokenize(text.toLowerCase());
+      
+      // Single word analysis
       for (const word of words) {
         const cleanWord = this.cleanWord(word);
         if (STOP_WORDS.has(cleanWord) || cleanWord.length < 3) {
           continue;
         }
         keywordFrequency[cleanWord] = (keywordFrequency[cleanWord] || 0) + 1;
+      }
+      
+      // Bigram analysis for phrases
+      for (let i = 0; i < words.length - 1; i++) {
+        const bigram = `${this.cleanWord(words[i])} ${this.cleanWord(words[i + 1])}`;
+        if (bigram.length > 5 && !STOP_WORDS.has(this.cleanWord(words[i])) && !STOP_WORDS.has(this.cleanWord(words[i + 1]))) {
+          keywordFrequency[bigram] = (keywordFrequency[bigram] || 0) + 1.5; // Bigrams get higher weight
+        }
       }
     }
 
@@ -192,21 +205,47 @@ export class OfflineAnalysisService {
         priority = 'low';
       }
 
-      // Check if similar root cause already exists
-      const existingCause = rootCauses.find(
-        rc => rc.category === category && 
-        (rc.title.toLowerCase().includes(keyword) || keyword.includes(rc.title.toLowerCase()))
-      );
+      // Check if similar root cause already exists (improved similarity matching)
+      const existingCause = rootCauses.find(rc => {
+        const rcTitleLower = rc.title.toLowerCase();
+        const keywordLower = keyword.toLowerCase();
+        
+        // Exact match
+        if (rcTitleLower === keywordLower) return true;
+        
+        // One contains the other
+        if (rcTitleLower.includes(keywordLower) || keywordLower.includes(rcTitleLower)) return true;
+        
+        // Same category and similar words (fuzzy matching)
+        if (rc.category === category) {
+          const rcWords = rcTitleLower.split(/\s+/);
+          const keywordWords = keywordLower.split(/\s+/);
+          const commonWords = rcWords.filter(w => keywordWords.includes(w));
+          if (commonWords.length > 0 && commonWords.length >= Math.min(rcWords.length, keywordWords.length) * 0.5) {
+            return true;
+          }
+        }
+        
+        return false;
+      });
 
       if (existingCause) {
         existingCause.frequency += frequency;
-        if (frequency > existingCause.frequency / 2) {
+        // Update title if new keyword is more descriptive (longer or contains more words)
+        if (keyword.split(/\s+/).length > existingCause.title.split(/\s+/).length || 
+            keyword.length > existingCause.title.length) {
           existingCause.title = this.capitalizeFirst(keyword);
+        }
+        // Update priority if frequency increased significantly
+        if (existingCause.frequency >= 10 && existingCause.priority !== 'critical') {
+          existingCause.priority = 'critical';
+        } else if (existingCause.frequency >= 5 && existingCause.priority === 'low') {
+          existingCause.priority = 'high';
         }
       } else {
         rootCauses.push({
           title: this.capitalizeFirst(keyword),
-          description: `Issue related to ${keyword} mentioned ${frequency} time(s) in feedback`,
+          description: `Issue related to ${keyword} mentioned ${Math.round(frequency)} time(s) in feedback`,
           category,
           priority,
           frequency,

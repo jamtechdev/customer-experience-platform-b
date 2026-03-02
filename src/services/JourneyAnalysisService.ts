@@ -47,6 +47,29 @@ export class JourneyAnalysisService {
   }
 
   /**
+   * Map feedback records to journey stages
+   */
+  async mapFeedbackToJourney(companyId: number, feedbackIds: number[]): Promise<void> {
+    const stages = await this.getStages();
+    const feedback = await CustomerFeedback.findAll({
+      where: {
+        id: feedbackIds,
+        companyId,
+      },
+    });
+
+    for (const f of feedback) {
+      const mappedStage = await this.mapFeedbackToStage(f, stages);
+      if (mappedStage) {
+        // Update feedback with stage mapping if needed
+        // This could be stored in a separate mapping table or as a field on feedback
+        // For now, we'll just ensure the journey analysis is updated
+        await this.analyzeJourney(companyId);
+      }
+    }
+  }
+
+  /**
    * Map feedback to journey stages using keyword matching
    */
   private async mapFeedbackToStage(feedback: CustomerFeedback, stages: JourneyStage[]): Promise<JourneyStage | null> {

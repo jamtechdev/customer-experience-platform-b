@@ -8,6 +8,7 @@ import touchpointRoutes from './touchpoints';
 import journeyRoutes from './journey';
 import dashboardRoutes from './dashboard';
 import settingsRoutes from './settings';
+import reportRoutes from './reports';
 
 const router = Router();
 
@@ -20,5 +21,6 @@ router.use('/touchpoints', touchpointRoutes);
 router.use('/journey', journeyRoutes);
 router.use('/dashboard', dashboardRoutes);
 router.use('/settings', settingsRoutes);
+router.use('/reports', reportRoutes);
 
 export default router;

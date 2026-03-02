@@ -14,4 +14,5 @@ export const TYPES = {
   ProcessEnhancementService: Symbol.for('ProcessEnhancementService'),
   ReportService: Symbol.for('ReportService'),
   SettingsService: Symbol.for('SettingsService'),
+  BatchProcessingService: Symbol.for('BatchProcessingService'),
 };

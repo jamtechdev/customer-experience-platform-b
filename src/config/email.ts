@@ -7,15 +7,31 @@ dotenv.config();
  * Email configuration for SMTP transporter
  * Set up email transporter using nodemailer for local SMTP (PaperCut) or external SMTP
  */
-export const emailTransporter = nodemailer.createTransport({
+const smtpConfig: {
+  host: string;
+  port: number;
+  secure: boolean;
+  auth?: {
+    user: string;
+    pass: string;
+  };
+} = {
   host: process.env.EMAIL_HOST || process.env.SMTP_HOST || '127.0.0.1',
   port: parseInt(process.env.EMAIL_PORT || process.env.SMTP_PORT || '25'),
   secure: process.env.EMAIL_SECURE === 'true' || process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
-  auth: {
-    user: process.env.EMAIL_USER || process.env.SMTP_USER || null,
-    pass: process.env.EMAIL_PASS || process.env.SMTP_PASSWORD || null,
-  },
-});
+};
+
+// Only add auth if credentials are provided
+const emailUser = process.env.EMAIL_USER || process.env.SMTP_USER;
+const emailPass = process.env.EMAIL_PASS || process.env.SMTP_PASSWORD;
+if (emailUser && emailPass) {
+  smtpConfig.auth = {
+    user: emailUser,
+    pass: emailPass,
+  };
+}
+
+export const emailTransporter = nodemailer.createTransport(smtpConfig);
 
 /**
  * Email sender configuration

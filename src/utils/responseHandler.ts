@@ -11,6 +11,7 @@ import { Response } from 'express';
  */
 export const errorHandler = (res: Response, code: number = 403, message: string | null = null, data: any = null): void => {
   const errorResponse = {
+    success: false,
     version: 'v1',
     code: code,
     message: message,
@@ -28,6 +29,7 @@ export const errorHandler = (res: Response, code: number = 403, message: string 
  */
 export const unauthorizedHandler = (res: Response, message: string = 'Your credentials are incorrect or your account has been blocked by the server administrator.'): void => {
   const response = {
+    success: false,
     version: 'v1',
     code: 401,
     message: message,
@@ -46,6 +48,7 @@ export const unauthorizedHandler = (res: Response, message: string = 'Your crede
  */
 export const successHandler = (res: Response, data: any, code: number = 200, message: string | null = null): void => {
   const response = {
+    success: true,
     message: message,
     version: 'v1',
     code: code,
@@ -91,6 +94,7 @@ export const validationErrorHandler = (res: Response, validationErrors: any = nu
 
   // Directly return message, code, version with the error field and message
   res.status(422).json({
+    success: false,
     message: firstError ? firstError.msg : 'Validation failed. Please check your input.',
     code: 422,
     version: 'v1',

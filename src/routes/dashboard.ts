@@ -6,6 +6,7 @@ const router = Router();
 const dashboardController = new DashboardController();
 
 router.get('/stats', authenticate, dashboardController.getStats);
+router.get('/executive', authenticate, dashboardController.getExecutiveDashboard);
 router.get('/sentiment', authenticate, dashboardController.getSentimentOverview);
 router.get('/nps', authenticate, dashboardController.getNPSDashboard);
 router.get('/competitor', authenticate, dashboardController.getCompetitorComparison);

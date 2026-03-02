@@ -16,6 +16,7 @@ import { SocialMediaAnalysisService } from '../services/SocialMediaAnalysisServi
 import { ProcessEnhancementService } from '../services/ProcessEnhancementService';
 import { ReportService } from '../services/ReportService';
 import { SettingsService } from '../services/SettingsService';
+import { BatchProcessingService } from '../services/BatchProcessingService';
 
 const container = new Container();
 
@@ -35,5 +36,6 @@ container.bind<SocialMediaAnalysisService>(TYPES.SocialMediaAnalysisService).to(
 container.bind<ProcessEnhancementService>(TYPES.ProcessEnhancementService).to(ProcessEnhancementService).inSingletonScope();
 container.bind<ReportService>(TYPES.ReportService).to(ReportService).inSingletonScope();
 container.bind<SettingsService>(TYPES.SettingsService).to(SettingsService).inSingletonScope();
+container.bind<BatchProcessingService>(TYPES.BatchProcessingService).to(BatchProcessingService).inSingletonScope();
 
 export default container;

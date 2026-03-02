@@ -63,6 +63,31 @@ export class CSVController {
     }
   };
 
+  getImportStatus = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!req.user) {
+        unauthorizedHandler(res, 'Authentication required');
+        return;
+      }
+
+      const importId = parseInt(req.params.importId);
+      const csvImport = await this.csvService.getImportById(importId, req.user.id);
+      
+      if (!csvImport) {
+        notFoundHandler(res, 'CSV import not found');
+        return;
+      }
+
+      successHandler(res, csvImport, 200, 'Import status retrieved successfully');
+    } catch (error: any) {
+      if (error instanceof AppError) {
+        errorHandler(res, error.statusCode, error.message);
+        return;
+      }
+      serverErrorHandler(res, error);
+    }
+  };
+
   createMapping = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       const errors = validationResult(req);

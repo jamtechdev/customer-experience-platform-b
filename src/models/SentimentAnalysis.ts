@@ -37,6 +37,7 @@ SentimentAnalysis.init(
     feedbackId: {
       type: DataTypes.INTEGER,
       allowNull: false,
+      field: 'feedback_id',
       references: {
         model: CustomerFeedback,
         key: 'id',
@@ -58,6 +59,7 @@ SentimentAnalysis.init(
       type: DataTypes.JSON,
       allowNull: false,
       defaultValue: [],
+      field: 'key_phrases',
     },
     emotions: {
       type: DataTypes.JSON,
@@ -68,9 +70,11 @@ SentimentAnalysis.init(
     sequelize,
     tableName: 'sentiment_analysis',
     timestamps: true,
+    createdAt: 'created_at',
+    updatedAt: 'updated_at',
   }
 );
 
-SentimentAnalysis.belongsTo(CustomerFeedback, { foreignKey: 'feedbackId' });
+SentimentAnalysis.belongsTo(CustomerFeedback, { foreignKey: 'feedbackId', targetKey: 'id' });
 
 export default SentimentAnalysis;
